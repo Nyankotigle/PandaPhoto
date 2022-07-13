@@ -4,7 +4,7 @@
 <br />
 <br />
 系统结合人脸及人体关键点识别，人像分割，目标检测，图像风格迁移，以及自己设计实现的熊猫分割PandaSeg，动作识别PoseRecognition等算法，依托Django框架搭建的Web应用，在服务器端使用 tensorflow、pytorch等深度学习框架搭建的智能图像处理模块处理前端通过单目相机捕获的图片并实时返回处理结果，目前可以实现实时视频挂件，人脸表情包生成，人像与熊猫照片创意融合，多动作互动拍照，分区风格化等功能。
-<h2>系统结构</h2>
+<h2>系统结构：</h2>
 <div align=center><img src="https://github.com/Nyankotigle/PandaPhoto/blob/master/images/%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84.png" width="90%" height="90%"></div>
 <br />
 <h2>系统注册、登录界面：</h2>
