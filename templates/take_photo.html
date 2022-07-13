@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <script src="/static/js/fileSaver.js"></script>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <!-- 确保适当的绘制和触屏缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    {% load staticfiles %}
+    <title>熊猫图像动漫化平台</title>
+    <!-- 新 Bootstrap 核心 CSS 文件 -->
+    <link rel="stylesheet" href="{% static "css/main.css" %}" >
+    <link rel="stylesheet" href="{% static "css/menu.css" %}" media="all">
+
+</head>
+
+<body>
+<div class="nar-top">
+    <div class="leftArea">
+        <a href="{% url 'create_proc:create_proc_index' %}" class="homepage">基于大熊猫主题的趣味动漫图像处理系统</a>
+    </div>
+    <<div class="rightArea">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'accounts:user_profile'%}">欢迎用户：{{ user.username }}</a>
+                             <a>|</a>
+                        <a href="{% url 'accounts:logout'%}">&nbsp;&nbsp;退出登录&nbsp;&nbsp;</a>
+                        {% else %}
+                        <a href="{% url 'accounts:login' %}">登录</a>
+                            <a>|</a>
+                        <a href="{% url 'accounts:register' %}">注册</a>
+                        {% endif %}
+    </div>
+</div>
+
+<div>
+    <div style="position:fixed;top:50px;">
+        <img class="photoFrame" style="width:700px;height:600px;position:fixed;left:200px;z-index:4;" src = "/static/images/PhotoFrame.png"></img>
+        <div style="width:700px;height:600px;position:fixed;left:200px;padding-top:100px;padding-left:50px;padding-right:50px;padding-bottom:50px;background-color: transparent;">
+            <video id="camera" width=600 height=450 autoplay style="position: absolute;z-index: 1;"></video>
+            <img id="pose_box" width=600 height=450 style="float:left;position: absolute;z-index: 2;display:none;opacity:0.5;" ></img>
+        </div>
+        <img class="photoFrame" style="width:700px;height:600px;position:fixed;right:200px;z-index:4;" src = "/static/images/PhotoFrame.png"></img>
+        <div style="width:700px;height:600px;position:fixed;right:103px;padding-top:100px;padding-left:50px;padding-right:50px;padding-bottom:50px;background-color: transparent;" >
+            <canvas id="canvasOutput" width=600 height=450 style="position: absolute;z-index: 1;"></canvas>
+            <img id="photo_show_1" width=600 height=450 style="float:left;position: absolute;z-index: 2;" ></img>
+            <img id="photo_show_2" width=600 height=450 style="float:left;position: absolute;z-index: 3;" ></img>
+            <div id="countdownNum" width=600 height=450 style="float:left;position: absolute;z-index: 4;display:none;color:red;font-size:200px;text-align:center;line-height:450px;padding-left:230px;">6</div>
+            <video id="panda_video" autoplay loop muted width="600px" heigt="450px" style="position: absolute;z-index: 5;display:none;"></video>
+        </div>
+    </div>
+    <div id="funcBar1" style="position:fixed;top:680px;width: 100%;text-align:center;">
+        <button class="ppbtn" id="tiezhi" onclick="tiezhiMode()" >熊猫贴纸</button>
+        <button class="ppbtn" id="biaoqing" onclick="biaoqingMode()" >熊猫表情</button>
+        <button class="ppbtn" id="huanjing" onclick="huanjingMode()" >熊猫环境融合</button>
+    </div>
+    <div id="funcBar2" style="position:fixed;top:750px;width: 100%;text-align:center;">
+        <button class="ppbtn1" id="videomode" onclick="videoMode() , takephoto()" >录像</button>
+        <button class="ppbtn1" id="photomode" onclick="photoMode()" >拍照</button>
+        <button class="ppbtn1" id="stylizeBtn" onclick="Stylize()" >风格化</button>
+        <button class="ppbtn1" id="savephoto" onclick="saveimg()" >保存</button>
+    </div>
+    <div id="funcBar3" style="position:fixed;top:850px;width: 100%;text-align:center;display:none;">
+        <button class="ppbtn1" id="envModeBtn1" onclick="envMode1(0)" >动作-拍照</button>
+        <button class="ppbtn1" id="envModeBtn1_video" onclick="envMode1(1)" >动作-视频</button>
+        <button class="ppbtn1" id="envModeBtn2" onclick="envMode2()" >定时拍照</button>
+        <button class="ppbtn1" id="envModeBtn3" onclick="envMode3()" >视频融合</button>
+        <button class="ppbtn1" id="stylizeBtn" onclick="Stylize()" >风格化</button>
+        <button class="ppbtn1" id="ChooseSegModelBtn" onclick="ChooseSegModel()" >快速分割</button>
+        <button class="ppbtn1" id="savephoto" onclick="saveimg()" >保存</button>
+    </div>
+    <div id="poseImgBar" style="position:fixed;top:850px;left: 50%;transform:translate(-50%,0);display:none;z-index:1;">
+        <table>
+            <caption style="background-color: #ffffff;">请在镜头前做出以下动作之一</caption>
+            <tr>
+                <td><img class="poseImg" id="poseImg1" src = "/static/images/poseImg/pose_2.png" onclick="getPoseBox(2)"></td>
+                <td><img class="poseImg" id="poseImg2" src = "/static/images/poseImg/pose_3.png" onclick="getPoseBox(3)"></td>
+                <td><img class="poseImg" id="poseImg3" src = "/static/images/poseImg/pose_4.png" onclick="getPoseBox(4)"></td>
+                <td><img class="poseImg" id="poseImg4" src = "/static/images/poseImg/pose_5.png" onclick="getPoseBox(5)"></td>
+                <td><img class="poseImg" id="poseImg5" src = "/static/images/poseImg/pose_6.png" onclick="getPoseBox(6)"></td>
+                <td><img class="poseImg" id="poseImg6" src = "/static/images/poseImg/pose_7.png" onclick="getPoseBox(7)"></td>
+                <td><img class="poseImg" id="poseImg7" src = "/static/images/poseImg/pose_8.png" onclick="getPoseBox(8)"></td>
+                <td><img class="poseImg" id="poseImg8" src = "/static/images/poseImg/pose_9.png" onclick="getPoseBox(9)"></td>
+            </tr>
+            <tr>
+                <td><img class="poseImg" id="poseImg9" src = "/static/images/poseImg/pose_10.png" onclick="getPoseBox(10)"></td>
+                <td><img class="poseImg" id="poseImg10" src = "/static/images/poseImg/pose_11.png" onclick="getPoseBox(11)"></td>
+                <td><img class="poseImg" id="poseImg11" src = "/static/images/poseImg/pose_12.png" onclick="getPoseBox(12)"></td>
+                <td><img class="poseImg" id="poseImg12" src = "/static/images/poseImg/pose_13.png" onclick="getPoseBox(13)"></td>
+                <td><img class="poseImg" id="poseImg13" src = "/static/images/poseImg/pose_14.png" onclick="getPoseBox(14)"></td>
+                <td><img class="poseImg" id="poseImg14" src = "/static/images/poseImg/pose_15.png" onclick="getPoseBox(15)"></td>
+                <td><img class="poseImg" id="poseImg15" src = "/static/images/poseImg/pose_16.png" onclick="getPoseBox(16)"></td>
+                <td><img class="poseImg" id="poseImg16" src = "/static/images/poseImg/pose_17.png" onclick="getPoseBox(17)"></td>
+            </tr>
+        </table>
+    </div>
+    <div id="styleImgBar" style="position:fixed;top:850px;left: 50%;transform:translate(-50%,0);background-color:white;display:none;z-index:2;">
+        <table>
+            <caption style="background-color: #ffffff;">请选择风格化样式</caption>
+            <tr>
+                <td><img class="styleImg_1" id="styleImg0" src = "/static/images/styleImg/style_00.png" onclick="selectPersonStyle(0)"></td>
+                <td><img class="styleImg_1" id="styleImg1" src = "/static/images/styleImg/style_01.png" onclick="selectPersonStyle(1)"></td>
+                <td><img class="styleImg_1" id="styleImg2" src = "/static/images/styleImg/style_02.png" onclick="selectPersonStyle(2)"></td>
+                <td><img class="styleImg_1" id="styleImg3" src = "/static/images/styleImg/style_03.png" onclick="selectPersonStyle(3)"></td>
+                <td><img class="styleImg_1" id="styleImg4" src = "/static/images/styleImg/style_04.png" onclick="selectPersonStyle(4)"></td>
+                <td><img class="styleImg_1" id="styleImg5" src = "/static/images/styleImg/style_05.png" onclick="selectPersonStyle(5)"></td>
+                <td><img class="styleImg_1" id="styleImg6" src = "/static/images/styleImg/style_06.png" onclick="selectPersonStyle(6)"></td>
+                <td><img class="styleImg_1" id="styleImg7" src = "/static/images/styleImg/style_07.png" onclick="selectPersonStyle(7)"></td>
+                <td><img class="styleImg_1" id="styleImg8" src = "/static/images/styleImg/style_08.png" onclick="selectPersonStyle(8)"></td>
+                <td><img class="styleImg_1" id="styleImg9" src = "/static/images/styleImg/style_09.png" onclick="selectPersonStyle(9)"></td>
+                <td><img class="styleImg_1" id="styleImg10" src = "/static/images/styleImg/style_10.png" onclick="selectPersonStyle(10)"></td>
+            </tr>
+            <tr>
+                <td><img class="styleImg_2" id="styleImg11" src = "/static/images/styleImg/style_00.png" onclick="selectEnvStyle(0)"></td>
+                <td><img class="styleImg_2" id="styleImg12" src = "/static/images/styleImg/style_01.png" onclick="selectEnvStyle(1)"></td>
+                <td><img class="styleImg_2" id="styleImg13" src = "/static/images/styleImg/style_02.png" onclick="selectEnvStyle(2)"></td>
+                <td><img class="styleImg_2" id="styleImg14" src = "/static/images/styleImg/style_03.png" onclick="selectEnvStyle(3)"></td>
+                <td><img class="styleImg_2" id="styleImg15" src = "/static/images/styleImg/style_04.png" onclick="selectEnvStyle(4)"></td>
+                <td><img class="styleImg_2" id="styleImg16" src = "/static/images/styleImg/style_05.png" onclick="selectEnvStyle(5)"></td>
+                <td><img class="styleImg_2" id="styleImg17" src = "/static/images/styleImg/style_06.png" onclick="selectEnvStyle(6)"></td>
+                <td><img class="styleImg_2" id="styleImg18" src = "/static/images/styleImg/style_07.png" onclick="selectEnvStyle(7)"></td>
+                <td><img class="styleImg_2" id="styleImg19" src = "/static/images/styleImg/style_08.png" onclick="selectEnvStyle(8)"></td>
+                <td><img class="styleImg_2" id="styleImg20" src = "/static/images/styleImg/style_09.png" onclick="selectEnvStyle(9)"></td>
+                <td><img class="styleImg_2" id="styleImg21" src = "/static/images/styleImg/style_10.png" onclick="selectEnvStyle(10)"></td>
+            </tr>
+        </table>
+    </div>
+    <div id="videoImgBar" style="position:fixed;top:850px;left: 50%;transform:translate(-50%,0);display:none;z-index:3;">
+        <table>
+            <caption style="background-color: #ffffff;">请选择视频背景</caption>
+            <tr>
+                <td><img class="videoImg" id="videoImg1" src = "/static/images/videoImg/background_1.jpg" onclick="ChooseVideoBg(1)"></td>
+                <td><img class="videoImg" id="videoImg2" src = "/static/images/videoImg/background_2.jpg" onclick="ChooseVideoBg(2)"></td>
+                <td><img class="videoImg" id="videoImg3" src = "/static/images/videoImg/background_3.jpg" onclick="ChooseVideoBg(3)"></td>
+                <td><img class="videoImg" id="videoImg4" src = "/static/images/videoImg/background_4.jpg" onclick="ChooseVideoBg(4)"></td>
+                <td><img class="videoImg" id="videoImg5" src = "/static/images/videoImg/background_5.jpg" onclick="ChooseVideoBg(5)"></td>
+                <td><img class="videoImg" id="videoImg6" src = "/static/images/videoImg/background_6.jpg" onclick="ChooseVideoBg(6)"></td>
+                <td><img class="videoImg" id="videoImg7" src = "/static/images/videoImg/background_7.jpg" onclick="ChooseVideoBg(7)"></td>
+                <td><img class="videoImg" id="videoImg8" src = "/static/images/videoImg/background_8.jpg" onclick="ChooseVideoBg(8)"></td>
+            </tr>
+            <tr>
+                <td><img class="videoImg" id="videoImg9" src = "/static/images/videoImg/background_9.jpg" onclick="ChooseVideoBg(9)"></td>
+                <td><img class="videoImg" id="videoImg10" src = "/static/images/videoImg/background_10.jpg" onclick="ChooseVideoBg(10)"></td>
+                <td><img class="videoImg" id="videoImg11" src = "/static/images/videoImg/background_11.jpg" onclick="ChooseVideoBg(11)"></td>
+                <td><img class="videoImg" id="videoImg12" src = "/static/images/videoImg/background_12.jpg" onclick="ChooseVideoBg(12)"></td>
+                <td><img class="videoImg" id="videoImg13" src = "/static/images/videoImg/background_13.jpg" onclick="ChooseVideoBg(13)"></td>
+                <td><img class="videoImg" id="videoImg14" src = "/static/images/videoImg/background_14.jpg" onclick="ChooseVideoBg(14)"></td>
+                <td><img class="videoImg" id="videoImg15" src = "/static/images/videoImg/background_15.jpg" onclick="ChooseVideoBg(15)"></td>
+                <td><img class="videoImg" id="videoImg16" src = "/static/images/videoImg/background_16.jpg" onclick="ChooseVideoBg(16)"></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<img id="background" src="/static/images/background-img/2.jpg" ></img>
+
+<style type="text/css">
+    .ppbtn{
+        width:100px;
+        height:50px;
+        margin-left: 50px;
+        margin-right: 50px;
+        background-color: #000000;
+        color: #ffffff;
+        border-style:solid;
+        border-width:medium;
+        border-color:#faf2cc;
+        border-radius: 20px;
+    }
+    .ppbtn1{
+        width:80px;
+        height:80px;
+        margin-left: 50px;
+        margin-right: 50px;
+        background-color: #000000;
+        color: #ffffff;
+        border-style:solid;
+        border-width:medium;
+        border-color:#faf2cc;
+        border-radius: 40px;
+    }
+    .ppbtn1:active{
+        background: red;
+    }
+    #background{
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        z-index: -1;
+        opacity: 0.7;
+    }
+    .poseImg{
+        width: 300px;
+        background-color: #ffffff;
+    }
+    .styleImg_1{
+        width: 300px;
+        background-color: #ffffff;
+    }
+    .styleImg_2{
+        width: 300px;
+        background-color: #ffffff;
+    }
+</style>
+
+
+
+    <script src="/static/js/ccv.js"></script>
+    <script src="/static/js/face.js"></script>
+    <script src="/static/js/jquery-3.2.0.min.js"></script>
+    <script async src="/static/js/opencv2.js" onload="opencvLoad()" type="text/javascript"></script>
+
+    <script>
+            var mediaStream;
+            var recorderFile;
+            var stopRecordCallback;
+            //var openBtn = document.getElementById("openCamera");
+            //var startBtn = document.getElementById("start-recording");
+            //var saveBtn = document.getElementById("save-recording");
+
+            $(document).ready(function() {
+                openCamera();
+            });
+
+            /*
+            startBtn.onclick = function() {
+                this.disabled = true;
+                startRecord();
+            };
+
+            saveBtn.onclick = function() {
+                saver();
+                // alert('Drop WebM file on Chrome or Firefox. Both can play entire file. VLC player or other players may not work.');
+            };
+            */
+
+
+            var mediaRecorder;
+            var videosContainer = document.getElementById('videos-container');
+
+            var video = document.getElementById('camera');
+
+            function openCamera(){
+                /*
+                var len = videosContainer.childNodes.length;
+                for(var i=0;i<len;i++){
+                    videosContainer.removeChild(videosContainer.childNodes[i]);
+                }
+                *.
+                */
+                //var video = document.createElement('video');
+
+
+                var videoWidth = 600;
+                var videoHeight = 450;
+                video.controls = false;
+                video.muted = true;
+                video.width = videoWidth;
+                video.height = videoHeight;
+                MediaUtils.getUserMedia(true , false, function (err, stream) {
+                    if (err) {
+                        throw err;
+                    } else {
+                        // 通过 MediaRecorder 记录获取到的媒体流
+                        mediaRecorder = new MediaRecorder(stream);
+                        //mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+                        mediaStream = stream;
+                        var chunks = [], startTime = 0;
+                        video.srcObject = stream;
+                        video.play();
+
+                        //videosContainer.appendChild(video);
+                        mediaRecorder.ondataavailable = function(e) {
+                            mediaRecorder.blobs.push(e.data);
+                            chunks.push(e.data);
+                        };
+                        mediaRecorder.blobs = [];
+
+                        mediaRecorder.onstop = function (e) {
+                            recorderFile = new Blob(chunks, { 'type' : mediaRecorder.mimeType });
+                            chunks = [];
+                            if (null != stopRecordCallback) {
+                                stopRecordCallback();
+                            }
+                        };
+                }
+            });
+            }
+
+            // 停止录制
+            function stopRecord(callback) {
+                stopRecordCallback = callback;
+                // 终止录制器
+                mediaRecorder.stop();
+                // 关闭媒体流
+                //MediaUtils.closeStream(mediaStream);
+            }
+
+            var MediaUtils = {
+                /**
+                * 获取用户媒体设备(处理兼容的问题)
+                * @param videoEnable {boolean} - 是否启用摄像头
+                * @param audioEnable {boolean} - 是否启用麦克风
+                * @param callback {Function} - 处理回调
+                */
+                getUserMedia: function (videoEnable, audioEnable, callback) {
+                    navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia
+                    || navigator.msGetUserMedia || window.getUserMedia;
+                    var constraints = {video: videoEnable, audio: audioEnable};
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+                        callback(false, stream);
+                    })['catch'](function(err) {
+                        callback(err);
+                    });
+                    } else if (navigator.getUserMedia) {
+                        navigator.getUserMedia(constraints, function (stream) {
+                        callback(false, stream);
+                    }, function (err) {
+                        callback(err);
+                    });
+                } else {
+                    callback(new Error('Not support userMedia'));
+                }
+            },
+
+                /**
+                * 关闭媒体流
+                * @param stream {MediaStream} - 需要关闭的流
+                */
+                closeStream: function (stream) {
+                    if (typeof stream.stop === 'function') {
+                        stream.stop();
+                    }
+                    else {
+                        let trackList = [stream.getAudioTracks(), stream.getVideoTracks()];
+
+                        for (let i = 0; i < trackList.length; i++) {
+                            let tracks = trackList[i];
+                            if (tracks && tracks.length > 0) {
+                                for (let j = 0; j < tracks.length; j++) {
+                                    let track = tracks[j];
+                                    if (typeof track.stop === 'function') {
+                                        track.stop();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+function startRecord(recordTime) {
+    window.audio = new Audio('/static/audio/CapVideo.mp3');
+    window.audio.play();
+    mediaRecorder.start();
+    countDown(4, 1);//倒计时4s，不执行takephoto()
+    setTimeout(function(){
+        // 结束
+        stopRecord(function() {
+            window.audio = new Audio('/static/audio/CapVideo.mp3');
+            window.audio.play();
+            //alert("录制成功!");
+            //saver();
+            send();
+        });
+    }, recordTime);//设置录制时间
+}
+
+function saver(){
+    var file = new File([recorderFile], 'panda-' + (new Date).toISOString().replace(/:|\./g, '-') + '.mp4', {
+        type: 'video/mp4'
+    });
+    saveAs(file);
+}
+
+function send(){
+    var videoBlob = new Blob([recorderFile], {type: 'video/mp4'})
+    var videoFile = new File([videoBlob], 'panda-' + (new Date).toISOString().replace(/:|\./g, '-') + '.mp4', {type: 'video/mp4'});
+
+    let formdata4 = new FormData();
+    formdata4.append('videoFile', videoFile);
+    formdata4.append('videoBgNum', videoBgNum);
+    formdata4.append('poseKind', poseKind);
+
+
+    let request4 = new XMLHttpRequest();
+    let url = "../panda_video/";
+    request4.open("POST", url);
+    request4.responseType = 'blob';
+    request4.send(formdata4);
+    request4.onreadystatechange = function(){
+        if (request4.readyState == 4 && request4.status == 200) {
+            let video_path = this.getResponseHeader('video_path');
+            //console.log(video_path);
+            var pandaVideo = document.getElementById('panda_video');
+            if(video_path==null){
+                pandaVideo.src = "/static/images/change.mp4"
+            }
+            else{
+                pandaVideo.src = video_path;
+            }
+            $(countdownNum).css("display", "none");
+            $(panda_video).css("display", "");
+            pandaVideo.load();
+            pandaVideo.play();
+            if(photoClass == 3){
+                $(envModeBtn1).css("background-color", "black");
+                $(envModeBtn1_video).css("background-color", "black");
+            }
+            if(photoClass == 5) $(envModeBtn3).css("background-color", "black");
+        }
+    }
+}
+
+
+
+
+
+
+        var cap;
+        var mat;
+        var flame;
+
+        /*
+        //var video = document.getElementById('camera');
+        $(document).ready( function () {
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                if ("srcObject" in video) {
+                    video.srcObject = stream;
+                } else {
+                    video.src = window.URL.createObjectURL(stream);
+                }
+                //video.addEventListener('play', timer)
+            })
+        })
+        */
+
+        function opencvLoad(){
+            alert("opencvLoad");
+        }
+
+
+        var photoClass = 0;
+        function tiezhiMode(){
+            photoClass = 0;
+            $(pose_box).css("display", "none");
+            $(tiezhi).css("background-color", "red");
+            $(biaoqing).css("background-color", "black");
+            $(huanjing).css("background-color", "black");
+            $(funcBar2).css("display", "");
+            $(funcBar2).css("top", "750px");
+            $(funcBar3).css("display", "none");
+            $(poseImgBar).css("display", "none");
+            $(panda_video).css("display", "none");
+        }
+        function biaoqingMode(){
+            photoClass = 1;
+            $(pose_box).css("display", "none");
+            $(tiezhi).css("background-color", "black");
+            $(biaoqing).css("background-color", "red");
+            $(huanjing).css("background-color", "black");
+            $(funcBar2).css("display", "");
+            $(funcBar2).css("top", "750px");
+            $(funcBar3).css("display", "none");
+            $(poseImgBar).css("display", "none");
+            $(panda_video).css("display", "none");
+        }
+        function huanjingMode(){
+            photoClass = 2;
+            isVideo = 0;//环境融合模式下自动切换为拍照模式
+            $(tiezhi).css("background-color", "black");
+            $(biaoqing).css("background-color", "black");
+            $(huanjing).css("background-color", "red");
+            $(funcBar2).css("display", "none");
+            $(funcBar3).css("display", "");
+            $(funcBar3).css("top", "750px");
+            $(pose_box).css("display", "none");
+            $(poseImgBar).css("display", "");
+        }
+
+
+        var takephoto_times = 0;
+        var envMode1_video = 0;//动作识别+视频模式
+        function envMode1(isVideo){//动作识别
+            if(isVideo){
+                envMode1_video = 1
+                $(envModeBtn1_video).css("background-color", "red");
+            }
+            else{
+                envMode1_video = 0
+                $(envModeBtn1).css("background-color", "red");
+            }
+            photoClass = 3;
+            setTimeout(function() { takephoto(); informMatchSuccess();}, 3000);
+            $(pose_box).css("display", "none");
+            $(pose_box).css("opacity", "0.5");
+            $(envModeBtn2).css("background-color", "black");
+            $(envModeBtn3).css("background-color", "black");
+            $(panda_video).css("display", "none");
+        }
+        function envMode2(){//定时拍照
+            photoClass = 4;
+            countDown(3, 0);//倒计时3s，之后拍照（0）
+            $(envModeBtn1).css("background-color", "black");
+            $(envModeBtn2).css("background-color", "red");
+            $(envModeBtn3).css("background-color", "black");
+            $(panda_video).css("display", "none");
+        }
+        function envMode3(){//视频融合
+            photoClass = 5;
+            //setTimeout(function() { takephoto(); }, 1000);
+            $(envModeBtn1).css("background-color", "black");
+            $(envModeBtn2).css("background-color", "black");
+            $(envModeBtn3).css("background-color", "red");
+            $(panda_video).css("display", "none");
+            $(videoImgBar).css("display", "");
+        }
+
+
+        videoBgNum = 0;
+        function ChooseVideoBg(num){
+            videoBgNum = num;
+            startRecord(6000);
+            $(videoImgBar).css("display", "none");
+        }
+
+        var personSegModel = 1;
+        function ChooseSegModel(){
+            if(personSegModel == 1){
+                personSegModel = 0;
+                document.getElementById("ChooseSegModelBtn").innerText="精确分割";
+            }
+            else{
+                personSegModel = 1;
+                document.getElementById("ChooseSegModelBtn").innerText="快速分割";
+            }
+        }
+
+        var personStyleKind = -1;
+        var envStyleKind = -1;
+        var isSelectStyle = 0;
+        function Stylize(){
+            $(".styleImg_1").css("opacity", "1");
+            $(".styleImg_2").css("opacity", "1");
+            if(isSelectStyle == 0){
+                $(poseImgBar).css("display", "none");
+                personStyleKind = -1;
+                envStyleKind = -1;
+                isSelectStyle = 1
+                $(styleImgBar).css("display", "");
+                $(stylizeBtn).css("background-color", "red");
+            }
+            else{
+                $(poseImgBar).css("display", "");
+                isSelectStyle = 0
+                $(styleImgBar).css("display", "none");
+                $(stylizeBtn).css("background-color", "black");
+
+                console.log("personStyleKind:",personStyleKind,"envStyleKind", envStyleKind);
+
+                let image = document.getElementById('photo_show_1');
+                let canvas = document.createElement('canvas')
+                canvas.width = image.width
+                canvas.height = image.height
+                let context = canvas.getContext('2d')
+                context.drawImage(image, 0, 0, image.width, image.height)
+                let b64image = canvas.toDataURL('image/png')
+                let blob = dataURLtoBlob(b64image);
+                let formdata2 = new FormData();
+                let file = new File([blob], "5678.png", {type:"image/png"});
+                formdata2.append('img', file);
+                formdata2.append('photoClass', photoClass);
+                formdata2.append('personStyleKind', personStyleKind);
+                formdata2.append('envStyleKind', envStyleKind);
+                formdata2.append('videoMode', isVideo);
+                formdata2.append('personSegModel', personSegModel);
+                formdata2.append('envMode1_video', envMode1_video);
+
+                let request2 = new XMLHttpRequest();
+                let url = "../take_photo/";
+                request2.open("POST", url);
+                request2.responseType = 'blob';
+                request2.send(formdata2);
+                console.log("send success!!!");
+
+                //仅当处于视频挂件模式时保留风格化的选择，否则清空
+                if(!(photoClass==0 && isVideo==1)){
+                    personStyleKind = -1;
+                    envStyleKind = -1;
+                }
+
+                request2.onreadystatechange = function(){
+                    if (request2.readyState == 4 && request2.status == 200) {
+                        let blob = this.response;
+                        let imageUrl = (window.URL || window.webkitURL).createObjectURL(blob);
+                        document.getElementById("photo_show_2").src = imageUrl;
+                        $(photo_show_2).css("display", "");
+                    }
+                }
+            }
+        }
+        //选择风格化样式
+        function selectPersonStyle(style_kind) {
+            personStyleKind = style_kind
+            $(".styleImg_1").css("opacity", "0.2");
+            switch (style_kind)
+            {
+                case 0:$(styleImg0).css("opacity", "1");
+                break;
+                case 1:$(styleImg1).css("opacity", "1");
+                break;
+                case 2:$(styleImg2).css("opacity", "1");
+                break;
+                case 3:$(styleImg3).css("opacity", "1");
+                break;
+                case 4:$(styleImg4).css("opacity", "1");
+                break;
+                case 5:$(styleImg5).css("opacity", "1");
+                break;
+                case 6:$(styleImg6).css("opacity", "1");
+                break;
+                case 7:$(styleImg7).css("opacity", "1");
+                break;
+                case 8:$(styleImg8).css("opacity", "1");
+                break;
+                case 9:$(styleImg9).css("opacity", "1");
+                break;
+                case 10:$(styleImg10).css("opacity", "1");
+                break;
+            }
+        }
+        function selectEnvStyle(style_kind) {
+            envStyleKind = style_kind
+            $(".styleImg_2").css("opacity", "0.2");
+            switch (style_kind)
+            {
+                case 0:$(styleImg11).css("opacity", "1");
+                break;
+                case 1:$(styleImg12).css("opacity", "1");
+                break;
+                case 2:$(styleImg13).css("opacity", "1");
+                break;
+                case 3:$(styleImg14).css("opacity", "1");
+                break;
+                case 4:$(styleImg15).css("opacity", "1");
+                break;
+                case 5:$(styleImg16).css("opacity", "1");
+                break;
+                case 6:$(styleImg17).css("opacity", "1");
+                break;
+                case 7:$(styleImg18).css("opacity", "1");
+                break;
+                case 8:$(styleImg19).css("opacity", "1");
+                break;
+                case 9:$(styleImg20).css("opacity", "1");
+                break;
+                case 10:$(styleImg21).css("opacity", "1");
+                break;
+            }
+        }
+
+        //保存图片
+        function saveimg() {
+            let image = document.getElementById('photo_show_1');
+            // 解决跨域 Canvas 污染问题
+            //image.setAttribute('crossOrigin', 'anonymous')
+            let canvas = document.createElement('canvas')
+            canvas.width = image.width
+            canvas.height = image.height
+            let context = canvas.getContext('2d')
+            context.drawImage(image, 0, 0, image.width, image.height)
+            let url = canvas.toDataURL('image/png')
+            // 生成一个a元素
+            var a = document.createElement('a')
+            // 创建一个单击事件
+            var event = new MouseEvent('click')
+            // 将a的download属性设置为我们想要下载的图片名称，若name不存在则使用‘下载图片名称’作为默认名称
+            a.download = name || '熊猫拍照'
+            // 将生成的URL设置为a.href属性
+            a.href = url
+            // 触发a的单击事件
+            a.dispatchEvent(event)
+        }
+        var isVideo = 0;
+        function videoMode(){
+            isVideo = 1;
+            $(videomode).css("background-color", "red");
+        }
+
+        function photoMode(){
+            isVideo = 0;
+            styleKind = 0;//切换到拍照模式时，清除风格化样式
+            $(videomode).css("background-color", "black");
+            $(photo_show_2).css("display", "none");
+            takephoto();
+        }
+
+        var poseKind = -1;
+        function getPoseBox(pose_kind){
+            poseKind = pose_kind
+            document.getElementById("pose_box").src = "/static/images/poseImg/pose_"+poseKind.toString()+".png";
+            $(pose_box).css("display", "");
+        }
+
+        var start_cTime = 0;//记录初始设定的倒计时秒数
+        function countDown(cTime, mode){
+            $(countdownNum).css("display", "");
+            $(countdownNum).css("padding-left", "230px");
+            $(countdownNum).css("font-size", "200px");
+            //cTime=3;//这个变量是倒计时的秒数
+            start_cTime = cTime
+            TimeClose(cTime, mode);
+        }
+        function TimeClose(cTime, mode)
+        {
+            //只在倒计时刚开始时提示"开始录像"
+            if(mode == 1 && cTime == start_cTime) {
+                $(countdownNum).css("padding-left", "130px");
+                $(countdownNum).css("font-size", "100px");
+                document.getElementById("countdownNum").innerText="开始录像";
+            }
+            //否则显示倒计时时间
+            else{
+                $(countdownNum).css("padding-left", "230px");
+                $(countdownNum).css("font-size", "200px");
+                document.getElementById("countdownNum").innerText=cTime;//显示倒计时时间
+            }
+            //当倒计时结束时
+            if(cTime<=0){
+                //mode==0,播放拍照提示音并且调用takephoto()
+                if(mode == 0){
+                    window.audio = new Audio('/static/audio/Shutter sound02.mp3');
+                    window.audio.play();
+                    takephoto();//执行拍照
+                }
+                if(mode == 1) {
+
+                }
+                $(countdownNum).css("padding-left", "130px");
+                $(countdownNum).css("font-size", "100px");
+                document.getElementById("countdownNum").innerText="处理中···";
+            }
+            //cTime--减少秒数并递归
+            else{
+                setTimeout(function() { TimeClose(--cTime, mode); }, 1000);
+            }
+        }
+
+        //图片转成二进制Buffer
+        function dataURLtoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], {type: mimeString});
+        }
+
+        var ori_photo;
+        function takephoto(){
+
+                // 创建VideoCapture
+                cap = new cv.VideoCapture(video);
+                // 创建存放图像的Mat
+                mat = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                // 读一帧图像
+                cap.read(mat);
+                cap.release;
+                //cv.release(cap);
+                /*
+                //将Mat展开成一维数组
+                var matArray = new Array(mat.rows * mat.cols * 4);
+                if (mat.isContinuous())
+                    matArray = mat.data;
+                //将一维数组转换为Mat
+                var matArray1 = new Array(4);
+                for (var i = 0; i <4; ++i){
+                    matArray1[i] = new Array(mat.rows);
+                    for (var j = 0; j < mat.rows; ++j){
+                        matArray1[i][j] = new Array(mat.cols);
+                        for (var k = 0; k < mat.cols; ++k){
+                            matArray1[i][j][k] = matArray[i * mat.rows*4 + k] ;
+                        }
+                    }
+                }
+                flame = new cv.Mat(video.height, video.width, cv.CV_8UC4, matArray1);
+                debugger;
+                */
+
+                /*
+                let ret, buf;
+                cv.imencode(".png", mat, buf);
+                ret = buf.tobytes();
+                */
+
+                cv.imshow('canvasOutput', mat);
+                let canvas = document.getElementById('canvasOutput');
+                let b64image  = canvas.toDataURL("image/png");
+                ori_photo = b64image;
+                if (photoClass >=2 || (photoClass <2 && isVideo==0)){//0,1视频模式延迟低，不用显示
+                    document.getElementById("photo_show_1").src = b64image;//选中的帧显示在右边窗口
+                    $(photo_show_2).css("display", "none");
+                }
+                let blob = dataURLtoBlob(b64image);
+            
+                var formdata1 = new FormData();
+                var file = new File([blob], "1234.png", {type:"image/png"});
+                formdata1.append('img', file);
+                formdata1.append('photoClass', photoClass);
+                formdata1.append('personStyleKind', personStyleKind);
+                formdata1.append('envStyleKind', envStyleKind);
+                formdata1.append('videoMode', isVideo);
+                formdata1.append('personSegModel', personSegModel);
+                formdata1.append('envMode1_video', envMode1_video);
+
+                var request1 = new XMLHttpRequest();
+                var url = "../take_photo/";
+                request1.open("POST", url);
+                //request1.setRequestHeader("Referer","http://127.0.0.1:8000/create/take_photo/");//设置请求header
+                request1.responseType = 'blob';
+                //request1.send(matArray);
+                request1.send(formdata1);
+
+                request1.onreadystatechange = function(){
+                    if (request1.readyState == 4 && request1.status == 200) {
+
+                        var blob2 = this.response;
+                        poseKind = this.getResponseHeader('poseKind');
+                        let is_envMode1_video = this.getResponseHeader('envMode1_video');
+                        console.log("poseKind: ", poseKind, "envMode1_video: ", is_envMode1_video);
+
+                        //直接显示返回的图片结果
+                        if(poseKind ==-1 || poseKind ==null){
+                            if(photoClass == 3) $(envModeBtn1).css("background-color", "black");
+                            if(photoClass == 4) $(envModeBtn2).css("background-color", "black");
+                            $(pose_box).css("display", "none");
+
+                            var imageUrl = (window.URL || window.webkitURL).createObjectURL(blob2);
+                            if(photoClass ==2 || photoClass ==3 || photoClass ==4) $(countdownNum).css("display", "none");
+                            //console.log("显示图片");
+                            document.getElementById("photo_show_1").src = imageUrl;
+                            document.getElementById("photo_show_2").src = imageUrl;
+
+                            //document.getElementById("pose_box").src = ori_photo;
+                            //$(pose_box).css("display", "");
+
+                            //$(photo_show_2).css("display", "none");
+                            if(isVideo){
+                                takephoto();
+                            }
+                        }
+                        else{
+                            //匹配到动作，开始录制视频
+                            if(is_envMode1_video==1){
+                                videoBgNum = 0;
+                                startRecord(4000);
+                            }
+                            else{
+                                //未匹配成功，显示最接近的动作，并且继续配匹下一帧
+
+                                //***********收集动作数据***********
+                                takephoto_times = takephoto_times + 1;
+                                console.log("NUM: ", takephoto_times);
+                                if(takephoto_times == 20){
+                                    console.log("收集完成！！！");
+                                }
+                                else{
+                                    document.getElementById("pose_box").src = "/static/images/poseImg/pose_"+poseKind.toString()+".png";
+                                    $(pose_box).css("display", "");
+                                    takephoto();
+                                }
+                                //********************************
+
+                                //document.getElementById("pose_box").src = "/static/images/poseImg/pose_"+poseKind.toString()+".png";
+                                //$(pose_box).css("display", "");
+                                //takephoto();
+                            }
+                        }
+                    }
+                };
+        }
+
+        function informMatchSuccess() {
+            var request3 = new XMLHttpRequest();
+            var url = "../InformMatchSuccess/";
+            request3.open("POST", url);
+            request3.responseType = 'blob';
+            request3.send();
+            request3.onreadystatechange = function () {
+                if (request3.readyState == 4 && request3.status == 200) {
+                    poseKind = this.getResponseHeader('poseKind');
+                    console.log("MatchSuccess!!!");
+                    console.log(poseKind);
+                    if (poseKind != -1 && poseKind != null && poseKind != 0) {
+                        document.getElementById("pose_box").src = "/static/images/poseImg/pose_" + poseKind.toString() + ".png";
+                        $(pose_box).css("display", "");
+                        $(pose_box).css("opacity", "1");
+                        $(countdownNum).css("padding-left", "130px");
+                        $(countdownNum).css("font-size", "100px");
+                        if(envMode1_video){
+                            document.getElementById("countdownNum").innerText="开始录像";
+                        }
+                        else{
+                            window.audio = new Audio('/static/audio/Shutter sound02.mp3');
+                            window.audio.play();
+                            document.getElementById("countdownNum").innerText="处理中···";
+                        }
+                        $(countdownNum).css("display", "");
+                    }
+                }
+            }
+        }
+
+    </script>
+</body>
+
+</html>
